@@ -1106,20 +1106,19 @@ export class SushkaGame {
       });
     }
 
-    const bob = Math.sin(this.elapsed * 7.2) * 11;
-    const squash = Math.sin(this.elapsed * 9) * 0.045;
-    const switching = Math.abs(this.race.lane - this.race.laneSmoothed) > 0.06;
-    const lean = (this.race.lane - this.race.laneSmoothed) * 0.35;
+    const bob = Math.sin(this.elapsed * 7.2) * 6;
+    const squash = Math.sin(this.elapsed * 9) * 0.03;
+    const lean = (this.race.lane - this.race.laneSmoothed) * 0.28;
 
     drawables.push({
       z: PLAYER_Z,
       draw: () => {
         const p = project(this.race.laneSmoothed, PLAYER_Z);
-        drawSprite(ctx, this.flyImg, p.x, p.y - 4, 168 * Math.max(0.78, p.scale), {
+        drawSprite(ctx, this.flyImg, p.x, p.y, 148 * Math.max(0.72, p.scale), {
           flip: this.race.flyFlip,
-          bob: 16 + bob + (switching ? 8 : 0),
+          bob,
           squash,
-          rot: lean + this.race.flyFlip * -0.18,
+          rot: lean + this.race.flyFlip * -0.12,
         });
       },
     });

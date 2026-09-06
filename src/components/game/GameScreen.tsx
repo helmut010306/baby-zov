@@ -47,7 +47,6 @@ export function GameScreen() {
   const hudRef = useRef<HudSnapshot>(INITIAL);
   const [hud, setHud] = useState<HudSnapshot>(INITIAL);
   const [boot, setBoot] = useState(true);
-  const [teaser, setTeaser] = useState(false);
   hudRef.current = hud;
 
   useEffect(() => {
@@ -311,25 +310,6 @@ export function GameScreen() {
           </>
         )}
 
-        {teaser && (
-          <div className="absolute inset-0 z-30 bg-black">
-            <video
-              src="/game/ui/teaser-gameplay.mp4"
-              className="h-full w-full object-cover"
-              autoPlay
-              controls
-              playsInline
-            />
-            <button
-              type="button"
-              className="absolute top-3 right-3 rounded-full bg-black/60 px-3 py-1 text-sm text-white"
-              onClick={() => setTeaser(false)}
-            >
-              Закрыть
-            </button>
-          </div>
-        )}
-
         {hud.phase === "menu" && !showBoot && (
           <MenuScreen
             bestScore={hud.bestScore}
@@ -344,7 +324,6 @@ export function GameScreen() {
               gameRef.current?.primeAudio();
               gameRef.current?.startRace();
             }}
-            onTeaser={() => setTeaser(true)}
             onMute={() => {
               gameRef.current?.primeAudio();
               gameRef.current?.setMuted(!hud.muted);
@@ -450,7 +429,6 @@ function MenuScreen({
   loadError,
   onStart,
   onRace,
-  onTeaser,
   onMute,
 }: {
   bestScore: number;
@@ -459,7 +437,6 @@ function MenuScreen({
   loadError: string | null;
   onStart: () => void;
   onRace: () => void;
-  onTeaser: () => void;
   onMute: () => void;
 }) {
   return (
@@ -502,10 +479,7 @@ function MenuScreen({
           className="bg-[#ff5d73] font-display tracking-wide text-white hover:opacity-95"
           onClick={onRace}
         >
-          Убегай
-        </Button>
-        <Button variant="secondary" size="pill" onClick={onTeaser}>
-          Тизер
+          Subway ZOV
         </Button>
         <Button
           variant="secondary"
