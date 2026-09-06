@@ -8,6 +8,7 @@ import {
   GIRL_SRC,
   GIRL_BACK,
   GIRL_SIDE,
+  FLY_SRC,
   loadImage,
   NORMAL_ITEMS,
   PLAYER_SPRITES,
@@ -144,6 +145,7 @@ export class SushkaGame {
   private strollerImg: HTMLImageElement | null = null;
   private girlBack: HTMLImageElement[] = [];
   private girlSide: HTMLImageElement[] = [];
+  private flyImg: HTMLImageElement | null = null;
   private muted = false;
   private bestScore = 0;
   private savedBestCombo = 0;
@@ -202,8 +204,8 @@ export class SushkaGame {
         }).catch(() => undefined),
       );
       rest.push(
-        loadImage(STROLLER_SRC).then((img) => {
-          this.strollerImg = img;
+        loadImage(FLY_SRC).then((img) => {
+          this.flyImg = img;
         }).catch(() => undefined),
       );
       GIRL_BACK.forEach((src, i) => {
@@ -1049,7 +1051,7 @@ export class SushkaGame {
     if (foot !== this.race.lastFoot) {
       this.race.lastFoot = foot;
       const p = project(this.race.laneSmoothed, PLAYER_Z);
-      this.puff(p.x, p.y + 4, 3);
+      this.puff(p.x - this.race.flyFlip * 18, p.y + 8, 2);
     }
     if (this.phase === "playing") this.emitHud();
   }
@@ -1104,34 +1106,20 @@ export class SushkaGame {
       });
     }
 
-    const bob = Math.abs(Math.sin(this.race.walkPhase)) * 9;
-    const squash = Math.sin(this.race.walkPhase * 2) * 0.07;
+    const bob = Math.sin(this.elapsed * 7.2) * 11;
+    const squash = Math.sin(this.elapsed * 9) * 0.045;
     const switching = Math.abs(this.race.lane - this.race.laneSmoothed) > 0.06;
-    const lean = (this.race.lane - this.race.laneSmoothed) * 0.28;
-
-    drawables.push({
-      z: 0.8,
-      draw: () => {
-        const p = project(this.race.laneSmoothed, 0.8);
-        drawSprite(ctx, this.strollerImg, p.x, p.y + 10, 70 * p.scale, {
-          bob: bob * 0.45,
-          squash: squash * 0.5,
-          rot: lean * 0.4,
-        });
-      },
-    });
+    const lean = (this.race.lane - this.race.laneSmoothed) * 0.35;
 
     drawables.push({
       z: PLAYER_Z,
       draw: () => {
         const p = project(this.race.laneSmoothed, PLAYER_Z);
-        const key = playerSprite(this.race.walkPhase);
-        const img = this.playerSprites.get(key) || this.playerSprites.get("idle") || null;
-        drawSprite(ctx, img, p.x, p.y, 148 * Math.max(0.72, p.scale), {
-          flip: lean > 0.04 ? 1 : lean < -0.04 ? -1 : 1,
-          bob: bob + (switching ? 6 : 0),
+        drawSprite(ctx, this.flyImg, p.x, p.y - 4, 168 * Math.max(0.78, p.scale), {
+          flip: this.race.flyFlip,
+          bob: 16 + bob + (switching ? 8 : 0),
           squash,
-          rot: lean,
+          rot: lean + this.race.flyFlip * -0.18,
         });
       },
     });

@@ -15,6 +15,7 @@ export const PLAYER_SPRITES: Record<SpriteKey, string> = {
 export const BACKGROUND_SRC = "/game/background.png?v=7";
 export const GIRL_SRC = "/game/player/girl_hero.png";
 export const STROLLER_SRC = "/game/player/stroller.png";
+export const FLY_SRC = "/game/player/fly.png";
 export const GIRL_BACK = [
   "/game/player/girl_back_0.png",
   "/game/player/girl_back_1.png",

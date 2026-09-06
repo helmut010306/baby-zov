@@ -34,6 +34,7 @@ export interface RaceState {
   invuln: number;
   spawnCd: number;
   lastFoot: number;
+  flyFlip: number;
 }
 
 export function createRace(): RaceState {
@@ -58,11 +59,13 @@ export function resetRace(): RaceState {
     invuln: 0,
     spawnCd: 0.55,
     lastFoot: 0,
+    flyFlip: 1,
   };
 }
 
 export function raceChangeLane(s: RaceState, dir: number) {
   s.lane = Math.max(-1, Math.min(1, s.lane + dir));
+  if (dir !== 0) s.flyFlip = dir;
 }
 
 /** Linear approach so items grow steadily as they come toward the camera. */
