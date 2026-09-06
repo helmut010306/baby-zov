@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Данил Сушка ловит",
+      "hasCanvas": true,
+      "bodyTextLen": 9,
+      "bodyTextHash": "db491ef5033fe069001c11460a5703989b4db1c510861ed5d566e33c99e4ec71",
+      "bodyTextPrefix": "Загрузка…",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Данил Сушка ловит",
+      "hasCanvas": true,
+      "bodyTextLen": 9,
+      "bodyTextHash": "db491ef5033fe069001c11460a5703989b4db1c510861ed5d566e33c99e4ec71",
+      "bodyTextPrefix": "Загрузка…",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
