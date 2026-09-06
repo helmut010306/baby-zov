@@ -16,7 +16,9 @@ import {
   createRace,
   drawRaceRoad,
   drawSprite,
+  girlZ,
   playerSprite,
+  PLAYER_Z,
   project,
   raceChangeLane,
   resetRace,
@@ -1001,12 +1003,15 @@ export class SushkaGame {
           this.flashRgb = "196, 92, 92";
           this.trauma = 1;
           this.audio.catchBad();
+          this.burst(x, y, "#e07a7a", 14, "shard");
           this.spawnFloater(x, y - 20, "догоняет!", "#e07a7a");
           if (this.lives <= 0) this.endGame();
         } else if (kind === "bonus") {
           this.lives = Math.min(MAX_LIVES, this.lives + 1);
           this.combo += 1;
           this.audio.catchBonus();
+          this.burst(x, y, "#f0d27a", 16, "star");
+          this.ring(x, y, "#f0d27a", 16);
           this.spawnFloater(x, y - 20, "+пицца", "#f0d27a");
         } else {
           const gained = 25 * this.multiplier();
@@ -1014,6 +1019,7 @@ export class SushkaGame {
           this.combo += 1;
           this.bestCombo = Math.max(this.bestCombo, this.combo);
           this.audio.catchGood(this.combo);
+          this.burst(x, y, "#e8eef6", 10, "heart");
           this.spawnFloater(x, y - 20, `+${gained}`, "#e8eef6");
         }
       },
@@ -1021,6 +1027,12 @@ export class SushkaGame {
     );
 
     this.score = Math.max(this.score, Math.floor(this.race.dist));
+    const foot = Math.floor(this.race.walkPhase / Math.PI);
+    if (foot !== this.race.lastFoot) {
+      this.race.lastFoot = foot;
+      const p = project(this.race.laneSmoothed, PLAYER_Z);
+      this.puff(p.x, p.y + 4, 3);
+    }
     if (this.phase === "playing") this.emitHud();
   }
 
@@ -1056,63 +1068,68 @@ export class SushkaGame {
     const drawables: { z: number; draw: () => void }[] = [];
 
     for (const ent of this.race.ents) {
-      if (ent.hit) continue;
       drawables.push({
         z: ent.z,
         draw: () => {
+          if (ent.z < 0) return;
           const p = project(ent.lane, ent.z);
           const img = this.images.get(ent.def.src) ?? null;
-          const size = (ent.kind === "bad" ? 70 : 58) * p.scale;
+          const pop = ent.pop;
+          const size = (ent.kind === "bad" ? 64 : 54) * p.scale * (1 + pop * 0.8);
           ctx.save();
-          ctx.globalAlpha = Math.min(1, 0.25 + p.t);
-          ctx.translate(p.x, p.y);
+          ctx.globalAlpha = ent.hit ? Math.max(0, 1 - pop) : Math.min(1, 0.35 + p.t * 0.75);
+          ctx.translate(p.x, p.y - pop * 70);
+          ctx.rotate(pop * 0.8);
           this.drawEntity(img, size, ent.def.label);
           ctx.restore();
         },
       });
     }
 
+    const bob = Math.abs(Math.sin(this.race.walkPhase)) * 9;
+    const squash = Math.sin(this.race.walkPhase * 2) * 0.07;
+    const switching = Math.abs(this.race.lane - this.race.laneSmoothed) > 0.06;
+    const lean = (this.race.lane - this.race.laneSmoothed) * 0.28;
+
     drawables.push({
       z: 0.8,
       draw: () => {
         const p = project(this.race.laneSmoothed, 0.8);
-        drawSprite(ctx, this.strollerImg, p.x, p.y + 8, 72 * p.scale);
+        drawSprite(ctx, this.strollerImg, p.x, p.y + 10, 70 * p.scale, {
+          bob: bob * 0.45,
+          squash: squash * 0.5,
+          rot: lean * 0.4,
+        });
       },
     });
 
     drawables.push({
-      z: 0.86,
+      z: PLAYER_Z,
       draw: () => {
-        const p = project(this.race.laneSmoothed, 0.86);
-        const switching = Math.abs(this.race.lane - this.race.laneSmoothed) > 0.08;
-        const key = playerSprite(this.race.walkPhase, switching);
+        const p = project(this.race.laneSmoothed, PLAYER_Z);
+        const key = playerSprite(this.race.walkPhase);
         const img = this.playerSprites.get(key) || this.playerSprites.get("idle") || null;
-        const flip =
-          this.race.lane > this.race.laneSmoothed + 0.04
-            ? 1
-            : this.race.lane < this.race.laneSmoothed - 0.04
-              ? -1
-              : 1;
-        drawSprite(ctx, img, p.x, p.y, 150 * Math.max(0.7, p.scale), flip);
+        drawSprite(ctx, img, p.x, p.y, 148 * Math.max(0.72, p.scale), {
+          flip: lean > 0.04 ? 1 : lean < -0.04 ? -1 : 1,
+          bob: bob + (switching ? 6 : 0),
+          squash,
+          rot: lean,
+        });
       },
     });
 
     drawables.push({
-      z: 0.94 + this.race.chase * 0.08,
+      z: girlZ(this.race.chase),
       draw: () => {
-        const z = 0.94 + this.race.chase * 0.08;
-        const p = project(this.race.laneSmoothed * 0.35, z);
-        const h = 56 + this.race.chase * 130;
-        ctx.save();
-        ctx.globalAlpha = 0.25 + this.race.chase * 0.75;
-        drawSprite(
-          ctx,
-          this.girlImg,
-          p.x,
-          GAME_H + 40 - this.race.chase * 118,
-          h,
-        );
-        ctx.restore();
+        const z = girlZ(this.race.chase);
+        const p = project(this.race.laneSmoothed * 0.25, z);
+        const gBob = Math.abs(Math.sin(this.race.walkPhase * 1.15 + 0.6)) * (5 + this.race.chase * 7);
+        const gSquash = Math.sin(this.race.walkPhase * 2.3) * 0.08;
+        drawSprite(ctx, this.girlImg, p.x, p.y + 8, 124 * p.scale, {
+          bob: gBob,
+          squash: gSquash,
+          rot: Math.sin(this.race.walkPhase) * 0.05,
+        });
       },
     });
 
