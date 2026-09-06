@@ -472,7 +472,7 @@ function MenuScreen({
           className="bg-[#ffd24a] font-display tracking-wide text-[#1a1408] hover:opacity-95"
           onClick={onStart}
         >
-          Лови
+          ZOV and diaper
         </Button>
         <Button
           size="pill"
