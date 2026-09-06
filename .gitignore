@@ -8,5 +8,3 @@ artifacts/
 screenshots/
 attachments/
 public/game/ui/*.mp4
-teaser.mp4
-.vercel/
