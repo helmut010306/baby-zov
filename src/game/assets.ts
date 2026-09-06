@@ -13,8 +13,18 @@ export const PLAYER_SPRITES: Record<SpriteKey, string> = {
 };
 
 export const BACKGROUND_SRC = "/game/background.png?v=7";
-export const GIRL_SRC = "/game/player/girl.png";
+export const GIRL_SRC = "/game/player/girl_hero.png";
 export const STROLLER_SRC = "/game/player/stroller.png";
+export const GIRL_BACK = [
+  "/game/player/girl_back_0.png",
+  "/game/player/girl_back_1.png",
+  "/game/player/girl_back_2.png",
+];
+export const GIRL_SIDE = [
+  "/game/player/girl_side_0.png",
+  "/game/player/girl_side_1.png",
+  "/game/player/girl_side_2.png",
+];
 
 const NORMAL_KEYS: { key: string; label: string }[] = [
   { key: "diaper_bear_blue", label: "подгузник" },

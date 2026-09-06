@@ -78,7 +78,8 @@ export function project(lane: number, z: number) {
 }
 
 export function girlZ(chase: number) {
-  return 0.58 + chase * 0.36;
+  // Higher z = closer to camera = behind the runner on the road.
+  return 0.97 - chase * 0.11;
 }
 
 export function updateRace(

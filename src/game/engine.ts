@@ -6,6 +6,8 @@ import {
   GAME_H,
   GAME_W,
   GIRL_SRC,
+  GIRL_BACK,
+  GIRL_SIDE,
   loadImage,
   NORMAL_ITEMS,
   PLAYER_SPRITES,
@@ -140,6 +142,8 @@ export class SushkaGame {
   private race: RaceState = createRace();
   private girlImg: HTMLImageElement | null = null;
   private strollerImg: HTMLImageElement | null = null;
+  private girlBack: HTMLImageElement[] = [];
+  private girlSide: HTMLImageElement[] = [];
   private muted = false;
   private bestScore = 0;
   private savedBestCombo = 0;
@@ -202,6 +206,20 @@ export class SushkaGame {
           this.strollerImg = img;
         }).catch(() => undefined),
       );
+      GIRL_BACK.forEach((src, i) => {
+        rest.push(
+          loadImage(src).then((img) => {
+            this.girlBack[i] = img;
+          }).catch(() => undefined),
+        );
+      });
+      GIRL_SIDE.forEach((src, i) => {
+        rest.push(
+          loadImage(src).then((img) => {
+            this.girlSide[i] = img;
+          }).catch(() => undefined),
+        );
+      });
       await Promise.all(rest);
       if (this.destroyed) return;
       this.draw();
@@ -1122,13 +1140,23 @@ export class SushkaGame {
       z: girlZ(this.race.chase),
       draw: () => {
         const z = girlZ(this.race.chase);
-        const p = project(this.race.laneSmoothed * 0.25, z);
-        const gBob = Math.abs(Math.sin(this.race.walkPhase * 1.15 + 0.6)) * (5 + this.race.chase * 7);
-        const gSquash = Math.sin(this.race.walkPhase * 2.3) * 0.08;
-        drawSprite(ctx, this.girlImg, p.x, p.y + 8, 124 * p.scale, {
+        const p = project(this.race.laneSmoothed * 0.2, z);
+        const fi = Math.abs(Math.floor(this.race.walkPhase)) % 3;
+        const switching = Math.abs(this.race.lane - this.race.laneSmoothed) > 0.08;
+        const gBob = Math.abs(Math.sin(this.race.walkPhase * 1.15 + 0.6)) * (4 + this.race.chase * 6);
+        const gSquash = Math.sin(this.race.walkPhase * 2.3) * 0.06;
+        const side = switching && this.girlSide[fi];
+        const img =
+          (side || this.girlBack[fi] || this.girlImg) ?? null;
+        const flip = side
+          ? this.race.lane >= this.race.laneSmoothed
+            ? 1
+            : -1
+          : 1;
+        drawSprite(ctx, img, p.x, Math.min(GAME_H - 88, p.y + 10), 108 * p.scale, {
+          flip,
           bob: gBob,
           squash: gSquash,
-          rot: Math.sin(this.race.walkPhase) * 0.05,
         });
       },
     });
