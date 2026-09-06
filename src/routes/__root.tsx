@@ -45,6 +45,7 @@ export const Route = createRootRoute({
     <html lang="ru" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script src="https://telegram.org/js/telegram-web-app.js" />
       </head>
       <body>
         <PreviewHostBridge />

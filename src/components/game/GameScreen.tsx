@@ -52,6 +52,23 @@ export function GameScreen() {
   }, []);
 
   useEffect(() => {
+    const tg = (
+      window as unknown as {
+        Telegram?: {
+          WebApp?: {
+            ready: () => void;
+            expand: () => void;
+            disableVerticalSwipes?: () => void;
+          };
+        };
+      }
+    ).Telegram?.WebApp;
+    tg?.ready();
+    tg?.expand();
+    tg?.disableVerticalSwipes?.();
+  }, []);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const game = new SushkaGame(canvas, setHud);
