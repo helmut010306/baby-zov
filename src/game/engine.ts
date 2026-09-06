@@ -5,16 +5,31 @@ import {
   BONUS_ITEM,
   GAME_H,
   GAME_W,
+  GIRL_SRC,
   loadImage,
   NORMAL_ITEMS,
   PLAYER_SPRITES,
+  STROLLER_SRC,
 } from "./assets";
 import { GameAudio } from "./audio";
+import {
+  createRace,
+  drawRaceRoad,
+  drawSprite,
+  playerSprite,
+  project,
+  raceChangeLane,
+  resetRace,
+  updateRace,
+  type RaceEnt,
+  type RaceState,
+} from "./race";
 import { loadSave, writeSave } from "./save";
 import type {
   HudSnapshot,
   ItemDef,
   ItemType,
+  PlayMode,
   PlayerReaction,
   SpriteKey,
 } from "./types";
@@ -119,6 +134,10 @@ export class SushkaGame {
   private spawnInterval = 1.1;
   private lastBadStreak = 0;
   private phase: HudSnapshot["phase"] = "loading";
+  private mode: PlayMode = "catch";
+  private race: RaceState = createRace();
+  private girlImg: HTMLImageElement | null = null;
+  private strollerImg: HTMLImageElement | null = null;
   private muted = false;
   private bestScore = 0;
   private savedBestCombo = 0;
@@ -171,6 +190,16 @@ export class SushkaGame {
           }),
         );
       });
+      rest.push(
+        loadImage(GIRL_SRC).then((img) => {
+          this.girlImg = img;
+        }).catch(() => undefined),
+      );
+      rest.push(
+        loadImage(STROLLER_SRC).then((img) => {
+          this.strollerImg = img;
+        }).catch(() => undefined),
+      );
       await Promise.all(rest);
       if (this.destroyed) return;
       this.draw();
@@ -184,7 +213,8 @@ export class SushkaGame {
     }
   }
 
-  startRun() {
+  startRun(mode: PlayMode = this.mode) {
+    this.mode = mode;
     this.audio.unlock();
     this.audio.setPaused(false);
     this.audio.start();
@@ -195,6 +225,10 @@ export class SushkaGame {
     this.inputReadyAt = performance.now() + 280;
     this.emitHud();
     this.loop();
+  }
+
+  startRace() {
+    this.startRun("race");
   }
 
   pause() {
@@ -245,7 +279,15 @@ export class SushkaGame {
   }
 
   setMoveDir(dir: number) {
+    if (this.mode === "race" && this.phase === "playing") {
+      if (dir !== 0 && this.moveDir === 0) raceChangeLane(this.race, dir);
+    }
     this.moveDir = dir;
+  }
+
+  changeLane(dir: number) {
+    if (this.mode !== "race" || this.phase !== "playing") return;
+    raceChangeLane(this.race, dir);
   }
 
   setPointerX(x: number | null) {
@@ -304,6 +346,7 @@ export class SushkaGame {
     this.isNewBest = false;
     this.trauma = 0;
     this.flash = 0;
+    this.race = resetRace();
   }
 
   private loop = (ts?: number) => {
@@ -319,6 +362,10 @@ export class SushkaGame {
   };
 
   private update(dt: number) {
+    if (this.mode === "race") {
+      this.updateRaceMode(dt);
+      return;
+    }
     this.elapsed += dt;
     this.spawnInterval = Math.max(0.4, 1.1 - this.elapsed * 0.04);
     this.spawnTimer += dt;
@@ -712,6 +759,11 @@ export class SushkaGame {
   }
 
   private waveLabel(): string {
+    if (this.mode === "race") {
+      if (this.race.chase > 0.72) return "Догоняет!";
+      if (this.race.chase > 0.4) return "Близко";
+      return "Убегай";
+    }
     let label: string = WAVE_LABELS[0].label;
     for (const w of WAVE_LABELS) {
       if (this.elapsed >= w.t) label = w.label;
@@ -720,6 +772,10 @@ export class SushkaGame {
   }
 
   draw() {
+    if (this.mode === "race" && (this.phase === "playing" || this.phase === "paused" || this.phase === "over")) {
+      this.drawRaceMode();
+      return;
+    }
     const ctx = this.ctx;
     ctx.save();
     const shake = this.trauma * this.trauma;
@@ -925,6 +981,175 @@ export class SushkaGame {
     ctx.restore();
   }
 
+  private updateRaceMode(dt: number) {
+    this.elapsed += dt;
+    this.trauma = Math.max(0, this.trauma - dt * 2.4);
+    this.flash = Math.max(0, this.flash - dt * 3);
+    this.updateFx(dt);
+
+    updateRace(
+      this.race,
+      dt,
+      (ent: RaceEnt) => {
+        this.race.ents.push(ent);
+      },
+      (kind, x, y) => {
+        if (kind === "bad") {
+          this.lives -= 1;
+          this.combo = 0;
+          this.flash = 1;
+          this.flashRgb = "196, 92, 92";
+          this.trauma = 1;
+          this.audio.catchBad();
+          this.spawnFloater(x, y - 20, "догоняет!", "#e07a7a");
+          if (this.lives <= 0) this.endGame();
+        } else if (kind === "bonus") {
+          this.lives = Math.min(MAX_LIVES, this.lives + 1);
+          this.combo += 1;
+          this.audio.catchBonus();
+          this.spawnFloater(x, y - 20, "+пицца", "#f0d27a");
+        } else {
+          const gained = 25 * this.multiplier();
+          this.score += gained;
+          this.combo += 1;
+          this.bestCombo = Math.max(this.bestCombo, this.combo);
+          this.audio.catchGood(this.combo);
+          this.spawnFloater(x, y - 20, `+${gained}`, "#e8eef6");
+        }
+      },
+      () => this.endGame(),
+    );
+
+    this.score = Math.max(this.score, Math.floor(this.race.dist));
+    if (this.phase === "playing") this.emitHud();
+  }
+
+  private drawRaceMode() {
+    const ctx = this.ctx;
+    ctx.save();
+    const shake = this.trauma * this.trauma;
+    if (shake > 0.002) {
+      const mag = shake * 10;
+      ctx.translate((Math.random() - 0.5) * mag * 2, (Math.random() - 0.5) * mag * 2);
+    }
+
+    if (this.bg && this.bg.complete && this.bg.naturalWidth > 0) {
+      ctx.drawImage(this.bg, 0, 0, GAME_W, GAME_H);
+    } else {
+      ctx.fillStyle = "#1e3c72";
+      ctx.fillRect(0, 0, GAME_W, GAME_H);
+    }
+
+    drawRaceRoad(ctx, this.race);
+
+    for (const tree of this.race.trees) {
+      const p = project(tree.side * 2.15, tree.z);
+      const h = 28 + p.scale * 90;
+      ctx.fillStyle = `rgba(28, 78, 36, ${0.25 + p.t * 0.7})`;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y - h * 0.35, 10 + p.scale * 22, h * 0.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#5a3a1a";
+      ctx.fillRect(p.x - 3 * p.scale, p.y - h * 0.2, 6 * p.scale, h * 0.22);
+    }
+
+    const drawables: { z: number; draw: () => void }[] = [];
+
+    for (const ent of this.race.ents) {
+      if (ent.hit) continue;
+      drawables.push({
+        z: ent.z,
+        draw: () => {
+          const p = project(ent.lane, ent.z);
+          const img = this.images.get(ent.def.src) ?? null;
+          const size = (ent.kind === "bad" ? 70 : 58) * p.scale;
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, 0.25 + p.t);
+          ctx.translate(p.x, p.y);
+          this.drawEntity(img, size, ent.def.label);
+          ctx.restore();
+        },
+      });
+    }
+
+    drawables.push({
+      z: 0.8,
+      draw: () => {
+        const p = project(this.race.laneSmoothed, 0.8);
+        drawSprite(ctx, this.strollerImg, p.x, p.y + 8, 72 * p.scale);
+      },
+    });
+
+    drawables.push({
+      z: 0.86,
+      draw: () => {
+        const p = project(this.race.laneSmoothed, 0.86);
+        const switching = Math.abs(this.race.lane - this.race.laneSmoothed) > 0.08;
+        const key = playerSprite(this.race.walkPhase, switching);
+        const img = this.playerSprites.get(key) || this.playerSprites.get("idle") || null;
+        const flip =
+          this.race.lane > this.race.laneSmoothed + 0.04
+            ? 1
+            : this.race.lane < this.race.laneSmoothed - 0.04
+              ? -1
+              : 1;
+        drawSprite(ctx, img, p.x, p.y, 150 * Math.max(0.7, p.scale), flip);
+      },
+    });
+
+    drawables.push({
+      z: 0.94 + this.race.chase * 0.08,
+      draw: () => {
+        const z = 0.94 + this.race.chase * 0.08;
+        const p = project(this.race.laneSmoothed * 0.35, z);
+        const h = 56 + this.race.chase * 130;
+        ctx.save();
+        ctx.globalAlpha = 0.25 + this.race.chase * 0.75;
+        drawSprite(
+          ctx,
+          this.girlImg,
+          p.x,
+          GAME_H + 40 - this.race.chase * 118,
+          h,
+        );
+        ctx.restore();
+      },
+    });
+
+    drawables.sort((a, b) => a.z - b.z);
+    for (const d of drawables) d.draw();
+
+    for (const p of this.particles) {
+      if (!p.active) continue;
+      const a = Math.max(0, p.life / p.max);
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.fillStyle = p.color;
+      ctx.strokeStyle = p.color;
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      this.drawParticle(p, a);
+      ctx.restore();
+    }
+
+    ctx.font = "600 16px Manrope, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (const f of this.floaters) {
+      if (!f.active) continue;
+      ctx.globalAlpha = Math.max(0, f.life / f.max);
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.globalAlpha = 1;
+
+    if (this.flash > 0) {
+      ctx.fillStyle = `rgba(${this.flashRgb}, ${this.flash * 0.35})`;
+      ctx.fillRect(0, 0, GAME_W, GAME_H);
+    }
+    ctx.restore();
+  }
+
   private emitHud(extra?: Partial<HudSnapshot>) {
     const hud: HudSnapshot = {
       phase: this.phase,
@@ -941,6 +1166,8 @@ export class SushkaGame {
       loaded: this.phase !== "loading",
       loadError: extra?.loadError ?? null,
       isNewBest: this.isNewBest,
+      mode: this.mode,
+      chase: this.mode === "race" ? this.race.chase : 0,
       ...extra,
     };
     const key = JSON.stringify(hud);

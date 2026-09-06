@@ -1,5 +1,7 @@
 export type GamePhase = "loading" | "menu" | "playing" | "paused" | "over";
 
+export type PlayMode = "catch" | "race";
+
 export type ItemType = "normal" | "bonus" | "bad";
 
 export type PlayerReaction = "good" | "bonus" | "bad" | null;
@@ -36,4 +38,6 @@ export interface HudSnapshot {
   loaded: boolean;
   loadError: string | null;
   isNewBest: boolean;
+  mode: PlayMode;
+  chase: number;
 }

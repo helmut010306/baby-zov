@@ -35,15 +35,19 @@ const INITIAL: HudSnapshot = {
   loaded: false,
   loadError: null,
   isNewBest: false,
+  mode: "catch",
+  chase: 0,
 };
 
 export function GameScreen() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<SushkaGame | null>(null);
   const holdRef = useRef(0);
+  const swipeRef = useRef<number | null>(null);
   const hudRef = useRef<HudSnapshot>(INITIAL);
   const [hud, setHud] = useState<HudSnapshot>(INITIAL);
   const [boot, setBoot] = useState(true);
+  const [teaser, setTeaser] = useState(false);
   hudRef.current = hud;
 
   useEffect(() => {
@@ -162,17 +166,29 @@ export function GameScreen() {
     if (hudRef.current.phase !== "playing") return;
     e.currentTarget.setPointerCapture(e.pointerId);
     const x = gameRef.current?.canvasXFromClient(e.clientX) ?? 0;
+    if (hudRef.current.mode === "race") {
+      swipeRef.current = x;
+      return;
+    }
     gameRef.current?.setPointerX(x);
   };
   const onPointerMove = (e: PointerEvent<HTMLCanvasElement>) => {
     if (hudRef.current.phase !== "playing") return;
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    if (hudRef.current.mode === "race") return;
     const x = gameRef.current?.canvasXFromClient(e.clientX) ?? 0;
     gameRef.current?.setPointerX(x);
   };
   const onPointerUp = (e: PointerEvent<HTMLCanvasElement>) => {
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    if (hudRef.current.mode === "race" && swipeRef.current !== null) {
+      const x = gameRef.current?.canvasXFromClient(e.clientX) ?? swipeRef.current;
+      const dx = x - swipeRef.current;
+      if (dx > 36) gameRef.current?.changeLane(1);
+      else if (dx < -36) gameRef.current?.changeLane(-1);
+      swipeRef.current = null;
     }
     gameRef.current?.setPointerX(null);
   };
@@ -224,6 +240,14 @@ export function GameScreen() {
                 <div className="rounded-full bg-bg/45 px-2.5 py-1 text-[11px] tracking-wide text-muted uppercase">
                   {hud.waveLabel}
                 </div>
+                {hud.mode === "race" && (
+                  <div className="mt-1 h-1.5 w-24 overflow-hidden rounded-full bg-black/40">
+                    <div
+                      className="h-full rounded-full bg-[#ff5d73]"
+                      style={{ width: `${Math.round(hud.chase * 100)}%` }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="rounded-[20px] bg-bg/55 px-3 py-2 backdrop-blur-[2px]">
@@ -287,7 +311,24 @@ export function GameScreen() {
           </>
         )}
 
-        {showBoot && <LoadingScreen />}
+        {teaser && (
+          <div className="absolute inset-0 z-30 bg-black">
+            <video
+              src="/game/ui/teaser-gameplay.mp4"
+              className="h-full w-full object-cover"
+              autoPlay
+              controls
+              playsInline
+            />
+            <button
+              type="button"
+              className="absolute top-3 right-3 rounded-full bg-black/60 px-3 py-1 text-sm text-white"
+              onClick={() => setTeaser(false)}
+            >
+              Закрыть
+            </button>
+          </div>
+        )}
 
         {hud.phase === "menu" && !showBoot && (
           <MenuScreen
@@ -297,8 +338,13 @@ export function GameScreen() {
             loadError={hud.loadError}
             onStart={() => {
               gameRef.current?.primeAudio();
-              gameRef.current?.startRun();
+              gameRef.current?.startRun("catch");
             }}
+            onRace={() => {
+              gameRef.current?.primeAudio();
+              gameRef.current?.startRace();
+            }}
+            onTeaser={() => setTeaser(true)}
             onMute={() => {
               gameRef.current?.primeAudio();
               gameRef.current?.setMuted(!hud.muted);
@@ -403,6 +449,8 @@ function MenuScreen({
   muted,
   loadError,
   onStart,
+  onRace,
+  onTeaser,
   onMute,
 }: {
   bestScore: number;
@@ -410,6 +458,8 @@ function MenuScreen({
   muted: boolean;
   loadError: string | null;
   onStart: () => void;
+  onRace: () => void;
+  onTeaser: () => void;
   onMute: () => void;
 }) {
   return (
@@ -445,7 +495,17 @@ function MenuScreen({
           className="bg-[#ffd24a] font-display tracking-wide text-[#1a1408] hover:opacity-95"
           onClick={onStart}
         >
-          Играть
+          Лови
+        </Button>
+        <Button
+          size="pill"
+          className="bg-[#ff5d73] font-display tracking-wide text-white hover:opacity-95"
+          onClick={onRace}
+        >
+          Убегай
+        </Button>
+        <Button variant="secondary" size="pill" onClick={onTeaser}>
+          Тизер
         </Button>
         <Button
           variant="secondary"
